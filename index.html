@@ -1,9 +1,11 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Mittere — Jeu de conjugaison latine</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Fraunces:ital,opsz,wght@1,9..144,500&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -156,7 +158,10 @@
   .modal .row{display:flex;gap:10px;}
   .modal .row .btn{margin-top:0;flex:1;width:auto;}
 
-  .demo-note{font-size:.72rem;color:var(--ink-soft);opacity:.8;text-align:center;margin-top:14px;line-height:1.4;}
+  .cls-card{background:var(--card);border:1.5px solid var(--parch-2);border-radius:14px;padding:14px 16px;cursor:pointer;box-shadow:0 3px 10px var(--shadow);transition:transform .12s ease, border-color .15s;}
+  .cls-card:active{transform:scale(.98);border-color:var(--gold);}
+  .cls-name{display:block;font-family:'Cinzel',serif;font-weight:700;font-size:1.05rem;color:var(--terra-dark);}
+  .cls-meta{display:block;font-size:.8rem;color:var(--ink-soft);margin-top:4px;}
   .footer-space{height:8px;}
   @media (max-height:680px){.start h1{font-size:1.9rem;}.laurel{font-size:2rem;}.rule-list{margin-top:14px;padding:12px 16px;}}
 </style>
@@ -188,23 +193,40 @@ const COLS = [
   {key:"tr", ask:"Quelle est sa <em>traduction</em> ?", latin:false},
 ];
 
-/* ============ COUCHE DE STOCKAGE (à remplacer par Firebase au déploiement) ============ */
-const SharedStore = (()=>{
-  const ok = (typeof window!=='undefined') && window.storage && typeof window.storage.set==='function';
-  const MEM = {};
-  return {
-    available: ok,
-    async set(k,v){ if(ok){try{return await window.storage.set(k,v,true);}catch(e){MEM[k]=v;}} else {MEM[k]=v;} },
-    async get(k){ if(ok){try{const r=await window.storage.get(k,true);return r?r.value:null;}catch(e){return (k in MEM)?MEM[k]:null;}} else {return (k in MEM)?MEM[k]:null;} },
-    async list(prefix){ if(ok){try{const r=await window.storage.list(prefix,true);return (r&&r.keys)?r.keys:[];}catch(e){return Object.keys(MEM).filter(x=>x.startsWith(prefix));}} else {return Object.keys(MEM).filter(x=>x.startsWith(prefix));} },
-  };
-})();
+/* ============ COUCHE DE STOCKAGE — Supabase ============ */
+const _sb = supabase.createClient(
+  'https://eilbmnhtfveqktlrhdqf.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpbGJtbmh0ZnZlcWt0bHJoZHFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Nzg3OTgsImV4cCI6MjA5NjA1NDc5OH0.qi4HwQOKmVWxOsm_nRXG4ZX-My6-1On7Dhn8r-uq5gk'
+);
 const Store = {
-  genCode(){const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c='';for(let i=0;i<4;i++)c+=A[Math.floor(Math.random()*A.length)];return c;},
-  async createClass(name,pin){const code=this.genCode();await SharedStore.set('classes:'+code,JSON.stringify({code,name,pin,createdAt:new Date().toISOString()}));return code;},
-  async getClass(code){const v=await SharedStore.get('classes:'+code);return v?JSON.parse(v):null;},
-  async addResult(code,res){const id=Date.now()+'-'+Math.random().toString(36).slice(2,7);await SharedStore.set('results:'+code+':'+id,JSON.stringify(res));},
-  async listResults(code){const keys=await SharedStore.list('results:'+code+':');const out=[];for(const k of keys){const v=await SharedStore.get(k);if(v){try{out.push(JSON.parse(v));}catch(e){}}}return out;},
+  genCode(){ const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c=''; for(let i=0;i<4;i++) c+=A[Math.floor(Math.random()*A.length)]; return c; },
+  async createClass(name,pin){
+    const code=this.genCode();
+    const {error}=await _sb.from('classes').insert({code,name,pin});
+    if(error) throw error;
+    return code;
+  },
+  async getClass(code){
+    const {data}=await _sb.from('classes').select('*').eq('code',code).single();
+    return data||null;
+  },
+  async addResult(code,res){
+    const {error}=await _sb.from('results').insert({
+      class_code:code, student:res.student, score:res.score,
+      attempted:res.attempted, total:res.total, seconds:res.seconds,
+      completed:res.completed, partial:res.partial,
+      details:res.details, finished_at:res.finishedAt
+    });
+    if(error) throw error;
+  },
+  async listClassesByPin(pin){
+    const {data}=await _sb.from('classes').select('*').eq('pin',pin).order('created_at',{ascending:false});
+    return data||[];
+  },
+  async listResults(code){
+    const {data}=await _sb.from('results').select('*').eq('class_code',code).order('score',{ascending:false});
+    return data||[];
+  },
 };
 
 /* ============ ÉTAT ============ */
@@ -220,7 +242,7 @@ function makeOptions(row,key){
   const pool=[...new Set(shuffle(DATA.filter(d=>d[key]!==correct).map(d=>d[key])))].slice(0,3);
   return shuffle([correct,...pool]);
 }
-const demoNote=()=> SharedStore.available?'':'<div class="demo-note">Mode démonstration : les résultats restent sur cet appareil. La version déployée utilisera une base partagée.</div>';
+const demoNote=()=>'';
 
 /* ============ ACCUEIL ============ */
 function homeScreen(){
@@ -312,30 +334,45 @@ function teacherOpenResults(){
   <div class="subhead"><button class="back" id="bk">‹</button><h3>Voir les résultats</h3></div>
   <div class="screen">
     <div class="field">
-      <label>Code de la classe</label>
-      <input id="ccode" class="code-input" type="text" placeholder="••••" maxlength="4" autocomplete="off" autocapitalize="characters">
-    </div>
-    <div class="field">
       <label>Ton code professeur (PIN)</label>
       <input id="cpin" class="code-input" type="text" inputmode="numeric" placeholder="••••" maxlength="6" autocomplete="off">
     </div>
     <div class="err" id="err"></div>
-    <button class="btn" id="ok">Afficher</button>
+    <button class="btn" id="ok">Afficher mes classes</button>
     <div class="footer-space"></div>
   </div>`;
   document.getElementById('bk').onclick=teacherMenu;
-  const inp=document.getElementById('ccode');inp.focus();
-  inp.oninput=()=>{inp.value=inp.value.toUpperCase();};
+  document.getElementById('cpin').focus();
   document.getElementById('ok').onclick=async()=>{
-    const code=inp.value.trim().toUpperCase();
     const pin=document.getElementById('cpin').value.trim();
     const err=document.getElementById('err');
-    if(code.length<4){err.textContent='Entre le code à 4 caractères.';return;}
-    const cls=await Store.getClass(code);
-    if(!cls){err.textContent='Aucune classe avec ce code.';return;}
-    if(cls.pin && cls.pin!==pin){err.textContent='Code professeur incorrect.';return;}
-    teacherDashboard(code,cls.name);
+    if(pin.length<4){err.textContent='Entre ton PIN (4 chiffres minimum).';return;}
+    const btn=document.getElementById('ok');btn.disabled=true;btn.textContent='Recherche…';
+    const classes=await Store.listClassesByPin(pin);
+    if(!classes.length){err.textContent='Aucune classe trouvée pour ce PIN.';btn.disabled=false;btn.textContent='Afficher mes classes';return;}
+    teacherClassList(pin,classes);
   };
+}
+
+function teacherClassList(pin,classes){
+  const fmt=iso=>{if(!iso)return '';const d=new Date(iso);const p=n=>String(n).padStart(2,'0');return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()}`;};
+  app.innerHTML=`
+  <div class="subhead"><button class="back" id="bk">‹</button><h3>Mes classes</h3></div>
+  <div class="screen">
+    <div class="hint" style="margin-bottom:12px;">Sélectionne une classe pour voir ses résultats.</div>
+    <div class="board" id="cls-list">
+      ${classes.map(c=>`
+        <div class="cls-card" data-code="${esc(c.code)}" data-name="${esc(c.name)}">
+          <span class="cls-name">${esc(c.name)}</span>
+          <span class="cls-meta">Code élèves : <strong>${c.code}</strong> · créée le ${fmt(c.created_at)}</span>
+        </div>`).join('')}
+    </div>
+    <div class="footer-space"></div>
+  </div>`;
+  document.getElementById('bk').onclick=()=>teacherOpenResults();
+  document.querySelectorAll('.cls-card').forEach(card=>{
+    card.onclick=()=>teacherDashboard(card.dataset.code, card.dataset.name);
+  });
 }
 
 async function teacherDashboard(code,name){
@@ -396,7 +433,7 @@ async function renderBoard(code){
   html+=`<div class="section-title">Toutes les parties</div>`;
   html+=res.map((r,i)=>`<div class="row-result ${r.partial?'partial':''}">
     <span class="rank">${i+1}</span>
-    <span class="nm">${esc(r.student)}<small>${r.partial?('arrêté · '+r.completed+'/14'):'terminé'} · ${fmtMoment(r.finishedAt)}</small></span>
+    <span class="nm">${esc(r.student)}<small>${r.partial?('arrêté · '+r.completed+'/14'):'terminé'} · ${fmtMoment(r.finished_at||r.finishedAt)}</small></span>
     <span class="sc">${r.score}/${r.attempted}</span>
     <span class="tm">${fmtTime(r.seconds)}</span></div>`).join('');
 
