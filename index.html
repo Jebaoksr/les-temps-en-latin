@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mittere — Jeu de conjugaison latine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Fraunces:ital,opsz,wght@1,9..144,500&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parch:#f3e9d2;--parch-2:#ece0c4;--ink:#2b2118;--ink-soft:#6b5b46;
+    --terra:#b5462f;--terra-dark:#8f3320;--olive:#5d6b3a;--gold:#c08a2d;
+    --green:#3f7d4e;--green-bg:#dff0df;--red:#c0392b;--red-bg:#f6dcd8;
+    --card:#fbf5e6;--shadow:rgba(43,33,24,.18);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Outfit',sans-serif;
+    background:
+      radial-gradient(circle at 20% 0%, #f7eed8 0%, transparent 55%),
+      radial-gradient(circle at 90% 100%, #ecdcbb 0%, transparent 50%),
+      var(--parch);
+    color:var(--ink);min-height:100vh;min-height:100dvh;
+    display:flex;justify-content:center;overscroll-behavior:none;
+  }
+  #app{width:100%;max-width:480px;min-height:100vh;min-height:100dvh;
+    padding:18px 18px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;}
+
+  .topbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .topbar .meta{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);font-weight:600;}
+  .progress-wrap{flex:1;height:9px;background:var(--parch-2);border-radius:99px;overflow:hidden;box-shadow:inset 0 1px 2px var(--shadow);}
+  .progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--gold),var(--terra));border-radius:99px;transition:width .5s cubic-bezier(.4,1.3,.5,1);}
+  .score-chip{font-family:'Cinzel',serif;font-weight:700;font-size:.95rem;color:var(--terra-dark);white-space:nowrap;}
+
+  .screen{flex:1;display:flex;flex-direction:column;animation:fade .45s ease both;}
+  @keyframes fade{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+
+  .start{justify-content:center;text-align:center;gap:6px;}
+  .laurel{font-size:2.4rem;margin-bottom:4px;}
+  .start h1{font-family:'Cinzel',serif;font-weight:700;font-size:2.2rem;margin:0;color:var(--terra-dark);letter-spacing:.04em;line-height:1.1;}
+  .start .verb{font-family:'Fraunces',serif;font-style:italic;font-size:1.15rem;color:var(--olive);margin-top:2px;}
+  .start p{color:var(--ink-soft);font-size:1rem;max-width:300px;margin:14px auto 0;line-height:1.5;}
+
+  .actions{margin-top:26px;}
+  .actions .btn{margin-top:0;}
+  .actions .btn + .btn{margin-top:12px;}
+
+  .rule-list{text-align:left;background:var(--card);border:1px solid var(--parch-2);border-radius:16px;padding:14px 18px;margin:20px auto 0;max-width:330px;box-shadow:0 6px 18px var(--shadow);}
+  .rule-list div{display:flex;gap:10px;align-items:flex-start;font-size:.9rem;color:var(--ink);padding:5px 0;}
+  .rule-list .n{font-family:'Cinzel',serif;font-weight:700;color:var(--terra);min-width:22px;}
+
+  .subhead{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .back{appearance:none;border:none;background:transparent;font-size:1.4rem;cursor:pointer;color:var(--ink-soft);padding:2px 8px;border-radius:8px;line-height:1;}
+  .back:active{background:var(--parch-2);}
+  .subhead h3{font-family:'Cinzel',serif;font-weight:700;font-size:1.15rem;margin:0;color:var(--terra-dark);}
+
+  .field{margin:16px 0 0;text-align:left;}
+  .field label{display:block;font-size:.78rem;font-weight:600;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;}
+  .field input{width:100%;font-family:'Outfit',sans-serif;font-size:1.05rem;padding:14px;border:1.5px solid var(--parch-2);border-radius:14px;background:var(--card);color:var(--ink);}
+  .field input:focus{outline:none;border-color:var(--terra);box-shadow:0 0 0 3px rgba(181,70,47,.12);}
+  .code-input{text-transform:uppercase;letter-spacing:.22em;font-family:'Cinzel',serif;font-weight:700;text-align:center;font-size:1.3rem;}
+  .err{color:var(--red);font-size:.86rem;font-weight:600;margin-top:10px;min-height:18px;text-align:center;}
+
+  .bigcode{font-family:'Cinzel',serif;font-weight:700;font-size:2.6rem;letter-spacing:.18em;color:var(--terra-dark);background:var(--card);border:2px dashed var(--gold);border-radius:16px;padding:20px;margin:18px 0;text-align:center;}
+  .hint{font-size:.9rem;color:var(--ink-soft);line-height:1.5;text-align:center;}
+
+  .qhead{text-align:center;margin-bottom:6px;}
+  .qhead .label{font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);font-weight:600;}
+  .temps-card{background:linear-gradient(135deg,#fff7e6,#f6ead0);border:1.5px solid var(--gold);border-radius:18px;padding:18px 16px;margin:8px 0 4px;text-align:center;box-shadow:0 8px 22px var(--shadow);position:relative;}
+  .temps-card .verbtag{position:absolute;top:8px;right:14px;font-family:'Fraunces',serif;font-style:italic;font-size:.8rem;color:var(--olive);opacity:.8;}
+  .temps-card h2{font-family:'Cinzel',serif;font-weight:700;font-size:1.45rem;margin:0;color:var(--ink);line-height:1.15;}
+
+  .steps{display:flex;gap:6px;justify-content:center;margin:14px 0 16px;}
+  .step-dot{display:flex;align-items:center;gap:6px;font-size:.72rem;font-weight:600;color:var(--ink-soft);opacity:.5;transition:.3s;}
+  .step-dot .bullet{width:10px;height:10px;border-radius:50%;background:var(--parch-2);transition:.3s;}
+  .step-dot.active{opacity:1;color:var(--terra-dark);}
+  .step-dot.active .bullet{background:var(--terra);transform:scale(1.25);}
+  .step-dot.done{opacity:1;color:var(--green);}
+  .step-dot.done .bullet{background:var(--green);}
+
+  .ask{text-align:center;font-size:1.05rem;font-weight:600;margin:2px 0 14px;color:var(--ink);}
+  .ask em{font-family:'Fraunces',serif;font-style:italic;color:var(--terra-dark);}
+
+  .options{display:flex;flex-direction:column;gap:12px;}
+  .opt{appearance:none;border:1.5px solid var(--parch-2);background:var(--card);color:var(--ink);
+    font-family:'Outfit',sans-serif;font-size:1.02rem;font-weight:500;padding:16px;border-radius:14px;
+    text-align:left;cursor:pointer;min-height:58px;display:flex;align-items:center;box-shadow:0 3px 10px var(--shadow);
+    transition:transform .12s ease, box-shadow .12s ease, background .2s, border-color .2s;line-height:1.3;}
+  .opt.latin{font-family:'Fraunces',serif;font-style:italic;font-size:1.12rem;}
+  .opt:active{transform:scale(.98);}
+  .opt.correct{background:var(--green-bg);border-color:var(--green);color:var(--green);font-weight:600;}
+  .opt.wrong{background:var(--red-bg);border-color:var(--red);color:var(--red);}
+  .opt:disabled{cursor:default;}
+  .opt .mark{margin-left:auto;font-weight:700;font-size:1.2rem;padding-left:10px;}
+
+  .feedback{text-align:center;min-height:24px;margin-top:14px;font-weight:600;font-size:.95rem;}
+  .feedback.ok{color:var(--green);}
+  .feedback.ko{color:var(--red);}
+
+  .end{justify-content:center;text-align:center;gap:4px;}
+  .end .trophy{font-size:3rem;}
+  .end h2{font-family:'Cinzel',serif;font-weight:700;font-size:1.7rem;color:var(--terra-dark);margin:6px 0 0;}
+  .end .grade{font-family:'Fraunces',serif;font-style:italic;font-size:1.15rem;color:var(--olive);margin-top:4px;}
+  .saved{font-size:.85rem;color:var(--ink-soft);margin-top:10px;min-height:18px;}
+  .stats{display:flex;gap:14px;justify-content:center;margin:22px 0 4px;}
+  .stat{background:var(--card);border:1px solid var(--parch-2);border-radius:16px;padding:16px 20px;box-shadow:0 6px 18px var(--shadow);min-width:96px;}
+  .stat .v{font-family:'Cinzel',serif;font-weight:700;font-size:1.6rem;color:var(--terra-dark);}
+  .stat .k{font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);font-weight:600;margin-top:2px;}
+
+  .board-head{display:flex;align-items:baseline;justify-content:space-between;margin:6px 0 10px;}
+  .board-head .cls{font-family:'Cinzel',serif;font-weight:700;color:var(--ink);}
+  .board-head .cnt{font-size:.82rem;color:var(--ink-soft);font-weight:600;}
+  .board{display:flex;flex-direction:column;gap:8px;overflow-y:auto;flex:1;}
+  .row-result{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--parch-2);border-radius:12px;padding:11px 13px;box-shadow:0 2px 6px var(--shadow);}
+  .row-result .rank{font-family:'Cinzel',serif;font-weight:700;color:var(--gold);min-width:26px;text-align:center;}
+  .row-result .nm{flex:1;font-weight:600;line-height:1.2;}
+  .row-result .nm small{display:block;font-weight:500;color:var(--ink-soft);font-size:.72rem;}
+  .row-result .sc{font-family:'Cinzel',serif;font-weight:700;color:var(--terra-dark);}
+  .row-result .tm{font-size:.76rem;color:var(--ink-soft);min-width:42px;text-align:right;}
+  .row-result.partial{opacity:.85;}
+  .empty{color:var(--ink-soft);text-align:center;margin-top:40px;line-height:1.5;}
+
+  .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .stats-card{background:var(--card);border:1px solid var(--parch-2);border-radius:14px;padding:13px 14px;margin-bottom:4px;box-shadow:0 4px 12px var(--shadow);}
+  .stats-row{display:flex;gap:10px;text-align:center;}
+  .stats-row .s{flex:1;}
+  .stats-row .s .v{font-family:'Cinzel',serif;font-weight:700;font-size:1.35rem;color:var(--terra-dark);}
+  .stats-row .s .k{font-size:.66rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:600;}
+  .section-title{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);font-weight:700;margin:16px 0 8px;}
+  .skills{display:flex;gap:8px;}
+  .skill{flex:1;background:var(--card);border:1px solid var(--parch-2);border-radius:10px;padding:9px 4px;text-align:center;box-shadow:0 2px 6px var(--shadow);}
+  .skill .v{font-family:'Cinzel',serif;font-weight:700;font-size:1.05rem;color:var(--terra-dark);}
+  .skill .k{font-size:.64rem;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-top:2px;}
+  .tbar{display:flex;align-items:center;gap:8px;font-size:.82rem;padding:5px 0;border-bottom:1px solid rgba(43,33,24,.05);}
+  .tbar .nm{flex:1;color:var(--ink);line-height:1.2;}
+  .tbar .track{width:60px;height:8px;background:var(--parch-2);border-radius:99px;overflow:hidden;flex:none;}
+  .tbar .fill{display:block;height:100%;border-radius:99px;transition:width .5s ease;}
+  .tbar .pc{min-width:36px;text-align:right;font-weight:700;color:var(--ink-soft);font-size:.76rem;}
+
+  .btn{appearance:none;border:none;cursor:pointer;font-family:'Cinzel',serif;font-weight:700;font-size:1.05rem;letter-spacing:.04em;
+    background:linear-gradient(135deg,var(--terra),var(--terra-dark));color:#fff7e6;padding:18px;border-radius:16px;width:100%;
+    box-shadow:0 8px 20px rgba(143,51,32,.4);transition:transform .12s ease, box-shadow .12s ease;margin-top:auto;}
+  .btn:active{transform:translateY(2px) scale(.99);box-shadow:0 4px 12px rgba(143,51,32,.4);}
+  .btn.ghost{background:transparent;color:var(--terra-dark);box-shadow:none;border:1.5px solid var(--terra);margin-top:12px;}
+  .btn.small{padding:13px;font-size:.95rem;}
+  .btn:disabled{opacity:.5;}
+  .link{background:none;border:none;color:var(--ink-soft);text-decoration:underline;font-family:'Outfit',sans-serif;font-size:.9rem;cursor:pointer;margin-top:16px;padding:8px;}
+
+  .stop-btn{appearance:none;border:none;background:transparent;color:var(--ink-soft);font-family:'Outfit',sans-serif;font-weight:600;font-size:.82rem;cursor:pointer;padding:6px 9px;border-radius:10px;display:flex;align-items:center;gap:4px;white-space:nowrap;}
+  .stop-btn:active{background:var(--parch-2);}
+  .overlay{position:fixed;inset:0;background:rgba(43,33,24,.45);display:flex;align-items:center;justify-content:center;padding:24px;z-index:50;animation:fade .2s ease both;}
+  .modal{background:var(--card);border-radius:18px;padding:22px;max-width:300px;width:100%;text-align:center;box-shadow:0 12px 30px var(--shadow);}
+  .modal p{margin:0 0 18px;font-weight:600;color:var(--ink);font-size:1.02rem;}
+  .modal .row{display:flex;gap:10px;}
+  .modal .row .btn{margin-top:0;flex:1;width:auto;}
+
+  .demo-note{font-size:.72rem;color:var(--ink-soft);opacity:.8;text-align:center;margin-top:14px;line-height:1.4;}
+  .footer-space{height:8px;}
+  @media (max-height:680px){.start h1{font-size:1.9rem;}.laurel{font-size:2rem;}.rule-list{margin-top:14px;padding:12px 16px;}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ============ DONNÉES : les 14 temps de "mittere" ============ */
+const DATA = [
+  {t:"Infinitif présent actif",            f:"R1 (+ e) + re",                                ex:"Mittere",            tr:"Envoyer"},
+  {t:"Indicatif présent actif",            f:"R1 (+ i/u) + o, s, t, mus, tis, nt",           ex:"Mittit",             tr:"Il envoie"},
+  {t:"Indicatif présent passif",           f:"R1 (+ i/u) + or, ris, tur, mur, mini, ntur",   ex:"Mittitur",           tr:"Il est envoyé"},
+  {t:"Indicatif imparfait actif",          f:"R1 + (e)ba + m, s, t, mus, tis, nt",           ex:"Mittebat",           tr:"Il envoyait"},
+  {t:"Indicatif imparfait passif",         f:"R1 + (e)ba + r, ris, tur, mur, mini, ntur",    ex:"Mittebatur",         tr:"Il était envoyé"},
+  {t:"Subjonctif imparfait actif",         f:"Infinitif présent + m, s, t, mus, tis, nt",    ex:"Cum mitteret",       tr:"Alors qu'il envoyait"},
+  {t:"Subjonctif imparfait passif",        f:"Infinitif présent + r, ris, tur, mur, mini, ntur", ex:"Cum mitteretur", tr:"Alors qu'il était envoyé"},
+  {t:"Indicatif parfait actif",            f:"R2 + i, isti, it, imus, istis, erunt",         ex:"Misit",              tr:"Il a envoyé / envoya"},
+  {t:"Indicatif parfait passif",           f:"R3 + us, a, um + sum, es, est",                ex:"Missus, a, um est",  tr:"Il a été envoyé / fut envoyé"},
+  {t:"Indicatif plus-que-parfait actif",   f:"R2 + era + m, s, t, mus, tis, nt",             ex:"Miserat",            tr:"Il avait envoyé"},
+  {t:"Indicatif plus-que-parfait passif",  f:"R3 + us, a, um + eram, eras, erat",            ex:"Missus, a, um erat", tr:"Il avait été envoyé"},
+  {t:"Subjonctif plus-que-parfait actif",  f:"R2 + isse + m, s, t, mus, tis, nt",            ex:"Cum misisset",       tr:"Alors qu'il avait envoyé"},
+  {t:"Subjonctif plus-que-parfait passif", f:"R3 + us, a, um + essem, esses, esset",         ex:"Cum missus, a, um esset", tr:"Alors qu'il avait été envoyé"},
+  {t:"Participe parfait passif",           f:"R3 + us, a, um / R3 + i, ae, a",               ex:"Missus, a, um",      tr:"(Ayant été) envoyé"},
+];
+const COLS = [
+  {key:"f",  ask:"Quelle est sa <em>formation</em> ?",  latin:false},
+  {key:"ex", ask:"Quel est l'<em>exemple latin</em> ?", latin:true},
+  {key:"tr", ask:"Quelle est sa <em>traduction</em> ?", latin:false},
+];
+
+/* ============ COUCHE DE STOCKAGE (à remplacer par Firebase au déploiement) ============ */
+const SharedStore = (()=>{
+  const ok = (typeof window!=='undefined') && window.storage && typeof window.storage.set==='function';
+  const MEM = {};
+  return {
+    available: ok,
+    async set(k,v){ if(ok){try{return await window.storage.set(k,v,true);}catch(e){MEM[k]=v;}} else {MEM[k]=v;} },
+    async get(k){ if(ok){try{const r=await window.storage.get(k,true);return r?r.value:null;}catch(e){return (k in MEM)?MEM[k]:null;}} else {return (k in MEM)?MEM[k]:null;} },
+    async list(prefix){ if(ok){try{const r=await window.storage.list(prefix,true);return (r&&r.keys)?r.keys:[];}catch(e){return Object.keys(MEM).filter(x=>x.startsWith(prefix));}} else {return Object.keys(MEM).filter(x=>x.startsWith(prefix));} },
+  };
+})();
+const Store = {
+  genCode(){const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c='';for(let i=0;i<4;i++)c+=A[Math.floor(Math.random()*A.length)];return c;},
+  async createClass(name,pin){const code=this.genCode();await SharedStore.set('classes:'+code,JSON.stringify({code,name,pin,createdAt:new Date().toISOString()}));return code;},
+  async getClass(code){const v=await SharedStore.get('classes:'+code);return v?JSON.parse(v):null;},
+  async addResult(code,res){const id=Date.now()+'-'+Math.random().toString(36).slice(2,7);await SharedStore.set('results:'+code+':'+id,JSON.stringify(res));},
+  async listResults(code){const keys=await SharedStore.list('results:'+code+':');const out=[];for(const k of keys){const v=await SharedStore.get(k);if(v){try{out.push(JSON.parse(v));}catch(e){}}}return out;},
+};
+
+/* ============ ÉTAT ============ */
+let order=[],qi=0,ci=0,score=0,total=DATA.length*COLS.length,startTime=0,locked=false;
+let currentStudent='',currentClass='',practice=false,details=[];
+const app=document.getElementById('app');
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const fmtTime=s=>{const m=String(Math.floor(s/60)).padStart(2,'0');const ss=String(s%60).padStart(2,'0');return m+':'+ss;};
+const fmtMoment=iso=>{if(!iso)return '';const d=new Date(iso);const p=n=>String(n).padStart(2,'0');return `${p(d.getDate())}/${p(d.getMonth()+1)} ${p(d.getHours())}:${p(d.getMinutes())}`;};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function makeOptions(row,key){
+  const correct=row[key];
+  const pool=[...new Set(shuffle(DATA.filter(d=>d[key]!==correct).map(d=>d[key])))].slice(0,3);
+  return shuffle([correct,...pool]);
+}
+const demoNote=()=> SharedStore.available?'':'<div class="demo-note">Mode démonstration : les résultats restent sur cet appareil. La version déployée utilisera une base partagée.</div>';
+
+/* ============ ACCUEIL ============ */
+function homeScreen(){
+  app.innerHTML=`
+  <div class="screen start">
+    <div class="laurel">🏛️</div>
+    <h1>Mittere</h1>
+    <div class="verb">jeu de conjugaison latine</div>
+    <p>Qui es-tu&nbsp;?</p>
+    <div class="actions">
+      <button class="btn" id="rt">Professeur</button>
+      <button class="btn ghost" id="rs">Élève</button>
+    </div>
+    <div class="footer-space"></div>
+  </div>`;
+  document.getElementById('rt').onclick=teacherMenu;
+  document.getElementById('rs').onclick=studentStart;
+}
+
+/* ============ PROFESSEUR ============ */
+function teacherMenu(){
+  app.innerHTML=`
+  <div class="subhead"><button class="back" id="bk">‹</button><h3>Espace professeur</h3></div>
+  <div class="screen start">
+    <p>Crée une classe, puis donne le code à tes élèves. Reviens ici pour suivre leurs résultats.</p>
+    <div class="actions">
+      <button class="btn" id="create">Créer une classe</button>
+      <button class="btn ghost" id="view">Voir les résultats</button>
+    </div>
+    ${demoNote()}
+    <div class="footer-space"></div>
+  </div>`;
+  document.getElementById('bk').onclick=homeScreen;
+  document.getElementById('create').onclick=teacherCreate;
+  document.getElementById('view').onclick=teacherOpenResults;
+}
+
+function teacherCreate(){
+  app.innerHTML=`
+  <div class="subhead"><button class="back" id="bk">‹</button><h3>Créer une classe</h3></div>
+  <div class="screen">
+    <div class="field">
+      <label>Nom de la classe</label>
+      <input id="cname" type="text" placeholder="ex. 3e A — Latin" maxlength="40" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Ton code professeur (PIN)</label>
+      <input id="cpin" class="code-input" type="text" inputmode="numeric" placeholder="••••" maxlength="6" autocomplete="off">
+    </div>
+    <div class="hint" style="margin-top:8px;">Garde ce PIN pour toi : il sera demandé pour consulter les résultats. Les élèves ne le connaissent pas.</div>
+    <div class="err" id="err"></div>
+    <button class="btn" id="ok">Générer le code</button>
+    <div class="footer-space"></div>
+  </div>`;
+  document.getElementById('bk').onclick=teacherMenu;
+  const inp=document.getElementById('cname');inp.focus();
+  document.getElementById('ok').onclick=async()=>{
+    const name=inp.value.trim();
+    const pin=document.getElementById('cpin').value.trim();
+    if(!name){document.getElementById('err').textContent='Donne un nom à ta classe.';return;}
+    if(pin.length<4){document.getElementById('err').textContent='Choisis un PIN d’au moins 4 chiffres.';return;}
+    const btn=document.getElementById('ok');btn.disabled=true;btn.textContent='Création…';
+    const code=await Store.createClass(name,pin);
+    teacherCreated(name,code,pin);
+  };
+}
+
+function teacherCreated(name,code,pin){
+  app.innerHTML=`
+  <div class="subhead"><button class="back" id="bk">‹</button><h3>Classe créée</h3></div>
+  <div class="screen start">
+    <p style="margin-top:6px;"><strong>${esc(name)}</strong></p>
+    <div class="hint">Code de la classe à donner aux élèves :</div>
+    <div class="bigcode">${code}</div>
+    <div class="hint">Ton code professeur (à garder secret) : <strong>${esc(pin)}</strong><br>Il te sera demandé pour voir les résultats.</div>
+    <div class="actions">
+      <button class="btn" id="results">Voir les résultats</button>
+      <button class="btn ghost" id="home">Retour à l'accueil</button>
+    </div>
+    <div class="footer-space"></div>
+  </div>`;
+  document.getElementById('bk').onclick=teacherMenu;
+  document.getElementById('results').onclick=()=>teacherDashboard(code,name);
+  document.getElementById('home').onclick=homeScreen;
+}
+
+function teacherOpenResults(){
+  app.innerHTML=`
+  <div class="subhead"><button class="back" id="bk">‹</button><h3>Voir les résultats</h3></div>
+  <div class="screen">
+    <div class="field">
+      <label>Code de la classe</label>
+      <input id="ccode" class="code-input" type="text" placeholder="••••" maxlength="4" autocomplete="off" autocapitalize="characters">
+    </div>
+    <div class="field">
+      <label>Ton code professeur (PIN)</label>
+      <input id="cpin" class="code-input" type="text" inputmode="numeric" placeholder="••••" maxlength="6" autocomplete="off">
+    </div>
+    <div class="err" id="err"></div>
+    <button class="btn" id="ok">Afficher</button>
+    <div class="footer-space"></div>
+  </div>`;
+  document.getElementById('bk').onclick=teacherMenu;
+  const inp=document.getElementById('ccode');inp.focus();
+  inp.oninput=()=>{inp.value=inp.value.toUpperCase();};
+  document.getElementById('ok').onclick=async()=>{
+    const code=inp.value.trim().toUpperCase();
+    const pin=document.getElementById('cpin').value.trim();
+    const err=document.getElementById('err');
+    if(code.length<4){err.textContent='Entre le code à 4 caractères.';return;}
+    const cls=await Store.getClass(code);
+    if(!cls){err.textContent='Aucune classe avec ce code.';return;}
+    if(cls.pin && cls.pin!==pin){err.textContent='Code professeur incorrect.';return;}
+    teacherDashboard(code,cls.name);
+  };
+}
+
+async function teacherDashboard(code,name){
+  app.innerHTML=`
+  <div class="subhead"><button class="back" id="bk">‹</button><h3>Résultats</h3></div>
+  <div class="screen">
+    <div class="board-head"><span class="cls">${esc(name)} · ${code}</span><span class="cnt" id="cnt">…</span></div>
+    <div class="scroll" id="content"><div class="empty">Chargement…</div></div>
+    <button class="btn ghost small" id="refresh">↻ Rafraîchir</button>
+    <button class="btn small" id="home" style="margin-top:10px;">Accueil</button>
+    <div class="footer-space"></div>
+  </div>`;
+  document.getElementById('bk').onclick=teacherMenu;
+  document.getElementById('home').onclick=homeScreen;
+  document.getElementById('refresh').onclick=()=>renderBoard(code);
+  renderBoard(code);
+}
+
+async function renderBoard(code){
+  const content=document.getElementById('content');const cnt=document.getElementById('cnt');
+  if(!content)return;
+  content.innerHTML='<div class="empty">Chargement…</div>';
+  let res=await Store.listResults(code);
+  res.sort((a,b)=> (b.score-a.score) || (a.seconds-b.seconds));
+  const students=new Set(res.map(r=>r.student)).size;
+  cnt.textContent=res.length+' partie'+(res.length>1?'s':'')+' · '+students+' élève'+(students>1?'s':'');
+  if(!res.length){content.innerHTML='<div class="empty">Aucun résultat pour l’instant.<br>Les scores apparaîtront ici dès que les élèves auront joué.</div>';return;}
+
+  /* --- agrégats --- */
+  let scoreSum=0,attemptSum=0,secSum=0;const perT={};const perC={f:[0,0],ex:[0,0],tr:[0,0]};
+  res.forEach(r=>{scoreSum+=r.score;attemptSum+=r.attempted;secSum+=r.seconds;
+    (r.details||[]).forEach(d=>{perT[d.t]=perT[d.t]||[0,0];perT[d.t][1]++;if(d.ok)perT[d.t][0]++;
+      if(perC[d.col]){perC[d.col][1]++;if(d.ok)perC[d.col][0]++;}});});
+  const avgPct=attemptSum?Math.round(scoreSum/attemptSum*100):0;
+  const avgSec=res.length?Math.round(secSum/res.length):0;
+  const colPct=k=>perC[k][1]?Math.round(perC[k][0]/perC[k][1]*100):null;
+  const fillColor=p=>p<50?'var(--red)':p<75?'var(--gold)':'var(--green)';
+  const tempsRows=Object.keys(perT).map(t=>({t,p:Math.round(perT[t][0]/perT[t][1]*100)})).sort((a,b)=>a.p-b.p);
+
+  let html=`<div class="stats-card"><div class="stats-row">
+    <div class="s"><div class="v">${avgPct}%</div><div class="k">Score moyen</div></div>
+    <div class="s"><div class="v">${fmtTime(avgSec)}</div><div class="k">Temps moyen</div></div>
+    <div class="s"><div class="v">${res.length}</div><div class="k">Parties</div></div>
+  </div></div>`;
+
+  if(perC.f[1]||perC.ex[1]||perC.tr[1]){
+    const chip=(k,lbl)=>{const p=colPct(k);return `<div class="skill"><div class="v">${p===null?'—':p+'%'}</div><div class="k">${lbl}</div></div>`;};
+    html+=`<div class="section-title">Réussite par compétence</div><div class="skills">${chip('f','Formation')}${chip('ex','Latin')}${chip('tr','Traduction')}</div>`;
+  }
+
+  if(tempsRows.length){
+    html+=`<div class="section-title">Réussite par temps — du plus difficile au plus réussi</div>`;
+    html+=tempsRows.map(r=>`<div class="tbar"><span class="nm">${esc(r.t)}</span>
+      <span class="track"><span class="fill" style="width:${r.p}%;background:${fillColor(r.p)};"></span></span>
+      <span class="pc">${r.p}%</span></div>`).join('');
+  }
+
+  html+=`<div class="section-title">Toutes les parties</div>`;
+  html+=res.map((r,i)=>`<div class="row-result ${r.partial?'partial':''}">
+    <span class="rank">${i+1}</span>
+    <span class="nm">${esc(r.student)}<small>${r.partial?('arrêté · '+r.completed+'/14'):'terminé'} · ${fmtMoment(r.finishedAt)}</small></span>
+    <span class="sc">${r.score}/${r.attempted}</span>
+    <span class="tm">${fmtTime(r.seconds)}</span></div>`).join('');
+
+  content.innerHTML=html;
+}
+
+/* ============ ÉLÈVE ============ */
+function studentStart(){
+  app.innerHTML=`
+  <div class="subhead"><button class="back" id="bk">‹</button><h3>Espace élève</h3></div>
+  <div class="screen">
+    <div class="field">
+      <label>Ton prénom</label>
+      <input id="sname" type="text" placeholder="ex. Camille" maxlength="24" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Code de la classe</label>
+      <input id="scode" class="code-input" type="text" placeholder="••••" maxlength="4" autocomplete="off" autocapitalize="characters">
+    </div>
+    <div class="err" id="err"></div>
+    <button class="btn" id="go">Commencer</button>
+    <button class="link" id="practice">Juste m'entraîner (sans enregistrer)</button>
+    <div class="footer-space"></div>
+  </div>`;
+  document.getElementById('bk').onclick=homeScreen;
+  const nm=document.getElementById('sname');nm.focus();
+  const cd=document.getElementById('scode');cd.oninput=()=>{cd.value=cd.value.toUpperCase();};
+  document.getElementById('go').onclick=async()=>{
+    const name=nm.value.trim();const code=cd.value.trim().toUpperCase();
+    if(!name){document.getElementById('err').textContent='Entre ton prénom.';return;}
+    if(code.length<4){document.getElementById('err').textContent='Entre le code de la classe (4 caractères).';return;}
+    const cls=await Store.getClass(code);
+    if(!cls){document.getElementById('err').textContent='Code de classe introuvable. Vérifie avec ton professeur.';return;}
+    currentStudent=name;currentClass=code;practice=false;
+    begin();
+  };
+  document.getElementById('practice').onclick=()=>{
+    const name=nm.value.trim();
+    currentStudent=name||'Anonyme';currentClass='';practice=true;
+    begin();
+  };
+}
+
+/* ============ JEU ============ */
+function begin(){order=shuffle(DATA.map((_,i)=>i));qi=0;ci=0;score=0;details=[];startTime=Date.now();question();}
+
+function question(){
+  locked=false;
+  const row=DATA[order[qi]];const col=COLS[ci];const opts=makeOptions(row,col.key);
+  const pct=((qi*COLS.length+ci)/total)*100;
+  app.innerHTML=`
+  <div class="topbar">
+    <span class="meta">${qi+1}/14</span>
+    <div class="progress-wrap"><div class="progress-bar" id="pb"></div></div>
+    <span class="score-chip">★ ${score}</span>
+    <button class="stop-btn" id="stop">✕ Arrêter</button>
+  </div>
+  <div class="screen">
+    <div class="qhead"><span class="label">${practice?'Entraînement':esc(currentStudent)+' · '+currentClass}</span></div>
+    <div class="temps-card"><span class="verbtag">mittere</span><h2>${row.t}</h2></div>
+    <div class="steps">
+      ${COLS.map((c,i)=>`<div class="step-dot ${i<ci?'done':''} ${i===ci?'active':''}"><span class="bullet"></span>${['Formation','Latin','Traduction'][i]}</div>`).join('')}
+    </div>
+    <div class="ask">${col.ask}</div>
+    <div class="options" id="opts">
+      ${opts.map(o=>`<button class="opt ${col.latin?'latin':''}" data-v="${encodeURIComponent(o)}">${o}<span class="mark"></span></button>`).join('')}
+    </div>
+    <div class="feedback" id="fb"></div>
+  </div>`;
+  requestAnimationFrame(()=>{document.getElementById('pb').style.width=pct+'%';});
+  document.getElementById('stop').onclick=confirmStop;
+  const correct=row[col.key];
+  document.querySelectorAll('.opt').forEach(btn=>{
+    btn.onclick=()=>{
+      if(locked)return;locked=true;
+      const val=decodeURIComponent(btn.dataset.v);const ok=val===correct;const fb=document.getElementById('fb');
+      details.push({t:row.t,col:col.key,ok});
+      document.querySelectorAll('.opt').forEach(b=>{
+        b.disabled=true;
+        if(decodeURIComponent(b.dataset.v)===correct){b.classList.add('correct');b.querySelector('.mark').textContent='✓';}
+      });
+      if(ok){score++;fb.textContent='Perfectum! Bien vu 👏';fb.className='feedback ok';}
+      else{btn.classList.add('wrong');btn.querySelector('.mark').textContent='✕';fb.textContent='La bonne réponse est en vert.';fb.className='feedback ko';}
+      setTimeout(next, ok?700:1500);
+    };
+  });
+}
+function next(){ci++;if(ci>=COLS.length){ci=0;qi++;}if(qi>=DATA.length){endScreen();}else{question();}}
+
+function confirmStop(){
+  const ov=document.createElement('div');ov.className='overlay';
+  ov.innerHTML=`<div class="modal"><p>Arrêter la partie maintenant ?</p>
+    <div class="row"><button class="btn ghost small" id="cancel">Continuer</button><button class="btn small" id="confirm">Arrêter</button></div></div>`;
+  document.body.appendChild(ov);
+  document.getElementById('cancel').onclick=()=>ov.remove();
+  document.getElementById('confirm').onclick=()=>{ov.remove();endScreen(qi*COLS.length+ci);};
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+}
+
+async function endScreen(attempted){
+  if(attempted===undefined)attempted=total;
+  const partial=attempted<total;const completed=Math.floor(attempted/COLS.length);
+  const secs=Math.round((Date.now()-startTime)/1000);const ratio=attempted>0?score/attempted:0;
+  let grade,trophy,title;
+  if(partial){title="Partie arrêtée";trophy="⏸️";grade=`Tu as complété ${completed} temps sur 14.`;}
+  else{title="Terminé !";
+    if(ratio===1){grade="Sans faute — magister !";trophy="🏆";}
+    else if(ratio>=.8){grade="Excellent travail !";trophy="🥇";}
+    else if(ratio>=.6){grade="Bien — continue à t'entraîner.";trophy="🥈";}
+    else{grade="À retravailler — recommence !";trophy="📜";}}
+
+  app.innerHTML=`
+  <div class="screen end">
+    <div class="trophy">${trophy}</div>
+    <h2>${title}</h2>
+    <div class="grade">${grade}</div>
+    <div class="stats">
+      <div class="stat"><div class="v">${score}/${attempted}</div><div class="k">Réponses</div></div>
+      <div class="stat"><div class="v">${fmtTime(secs)}</div><div class="k">Temps</div></div>
+    </div>
+    <div class="saved" id="saved"></div>
+    <div class="actions">
+      <button class="btn" id="again">Rejouer</button>
+      ${practice?'<button class="btn ghost" id="home">Accueil</button>':''}
+    </div>
+    <div class="footer-space"></div>
+  </div>`;
+  document.getElementById('again').onclick=begin;
+  const homeBtn=document.getElementById('home');
+  if(homeBtn)homeBtn.onclick=homeScreen;
+
+  const saved=document.getElementById('saved');
+  if(!practice && currentClass && currentStudent){
+    try{
+      await Store.addResult(currentClass,{student:currentStudent,score,attempted,total,seconds:secs,completed,partial,details:details.slice(),finishedAt:new Date().toISOString()});
+      saved.textContent='✓ Résultat envoyé à ton professeur';
+    }catch(e){saved.textContent='⚠ Résultat non enregistré';}
+  }else if(practice){saved.textContent='Entraînement — résultat non enregistré';}
+}
+
+homeScreen();
+</script>
+</body>
+</html>
